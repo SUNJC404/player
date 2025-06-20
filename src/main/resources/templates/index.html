@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Music Player</title>
+    <script>
+        // 1. 加载歌曲列表 (使用 Fetch API 调用 /api/songs)
+        function loadSongs() {
+            fetch('/api/songs')
+                .then(response => response.json())
+                .then(songs => {
+                    const list = document.getElementById('songList');
+                    list.innerHTML = ''; // 清空列表
+                    songs.forEach(song => {
+                        const li = document.createElement('li');
+                        li.textContent = `${song.title} - ${song.artist}`;
+                        li.onclick = () => playSong(song.id, song.filePath); // 点击播放
+                        list.appendChild(li);
+                    });
+                });
+        }
+
+        // 2. 播放歌曲
+        function playSong(songId, filePath) {
+            const audioPlayer = document.getElementById('audioPlayer');
+            // **关键：使用 FileController 提供的 API 获取文件 URL**
+            audioPlayer.src = `/api/files/${filePath}`; // 例如 /api/files/my_song.mp3
+            audioPlayer.play();
+            // 可以更新当前播放信息 (标题、艺术家等)
+            document.getElementById('nowPlaying').textContent = `Playing: ${document.querySelector(`li[data-song-id="${songId}"]`).textContent}`;
+        }
+
+        // 页面加载时初始化
+        window.onload = loadSongs;
+    </script>
+</head>
+<body>
+<h1>My Music Player</h1>
+<ul id="songList"></ul>
+<div id="nowPlaying"></div>
+<audio id="audioPlayer" controls></audio> <!-- 浏览器自带播放控件 -->
+<a href="upload" class="button">上传</a>
+</body>
+</html>

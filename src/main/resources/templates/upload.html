@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上传</title>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    #app {
+      background-color: #ffffff;
+      padding: 2rem 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 450px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1c1e21;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #606770;
+    }
+
+    input[type="text"],
+    input[type="file"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #dddfe2;
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    input[type="file"] {
+      padding: 0.5rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.85rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ffffff;
+      background-color: #007bff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #a0c3e6;
+      cursor: not-allowed;
+    }
+
+    .status-message {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.95rem;
+      min-height: 20px;
+      padding: 0.5rem;
+      border-radius: 6px;
+    }
+
+    .status-message.success {
+      color: #155724;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-message.error {
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <h1>上传你的歌曲</h1>
+
+  <form id="uploadForm" @submit.prevent="handleSubmit">
+    <div class="form-group">
+      <label for="title">歌曲标题 (Title)</label>
+      <input type="text" id="title" v-model="title" required>
+    </div>
+
+    <div class="form-group">
+      <label for="artist">艺术家 (Artist)</label>
+      <input type="text" id="artist" v-model="artist" required>
+    </div>
+
+    <div class="form-group">
+      <label for="audioFile">音频文件 (Audio File)</label>
+      <input type="file" id="audioFile" @change="handleFileChange" accept="audio/*" required>
+    </div>
+
+    <button type="submit" :disabled="isUploading">
+      {{ isUploading ? '上传中...' : '上传' }}
+    </button>
+  </form>
+
+  <div v-if="statusMessage" class="status-message" :class="statusClass">
+    {{ statusMessage }}
+  </div>
+</div>
+
+<script>
+  // 从全局 Vue 对象中解构出需要的方法
+  const { createApp, ref, computed } = Vue;
+
+  createApp({
+    // setup() 是 Vue 3 Composition API 的入口
+    setup() {
+      // --- 响应式状态定义 (使用 ref) ---
+      const title = ref('');
+      const artist = ref('');
+      const audioFile = ref(null); // 用于存储选中的文件对象
+      const isUploading = ref(false);
+      const statusMessage = ref('');
+      const statusType = ref(''); // 'success' 或 'error'
+
+      // --- 计算属性 (Computed Properties) ---
+      // 根据 statusType 动态计算出 class 对象
+      const statusClass = computed(() => ({
+        success: statusType.value === 'success',
+        error: statusType.value === 'error',
+      }));
+
+      // --- 方法 (Methods) ---
+      // 当文件输入框内容改变时触发
+      const handleFileChange = (event) => {
+        const files = event.target.files;
+        if (files.length > 0) {
+          audioFile.value = files[0];
+        }
+      };
+
+      // 表单提交时触发的异步方法
+      const handleSubmit = async () => {
+        if (!audioFile.value) {
+          statusMessage.value = '请先选择一个音频文件。';
+          statusType.value = 'error';
+          return;
+        }
+
+        // 准备上传
+        isUploading.value = true;
+        statusMessage.value = '正在上传，请稍候...';
+        statusType.value = '';
+
+        // 创建 FormData 对象
+        const formData = new FormData();
+        formData.append('title', title.value);
+        formData.append('artist', artist.value);
+        formData.append('file', audioFile.value);
+
+        const endpoint = 'http://localhost:8080/api/upload';
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`服务器响应错误: ${response.status}. ${errorText}`);
+          }
+
+          const result = await response.json();
+          console.log('Server response:', result);
+
+          statusMessage.value = '上传成功！';
+          statusType.value = 'success';
+
+          // 成功后重置表单
+          title.value = '';
+          artist.value = '';
+          audioFile.value = null;
+          document.getElementById('uploadForm').reset(); // 清空文件选择框
+
+        } catch (error) {
+          console.error('Upload failed:', error);
+          statusMessage.value = `上传失败: ${error.message}`;
+          statusType.value = 'error';
+        } finally {
+          // 无论成功失败，都结束上传状态
+          isUploading.value = false;
+        }
+      };
+
+      // --- 返回 ---
+      // 将需要在模板中访问的状态和方法返回
+      return {
+        title,
+        artist,
+        isUploading,
+        statusMessage,
+        statusClass,
+        handleFileChange,
+        handleSubmit,
+      };
+    }
+  }).mount('#app'); // 将 Vue 应用挂载到 #app 元素上
+</script>
+</body>
+</html>
